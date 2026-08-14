@@ -1,16 +1,16 @@
-name: Extract Taxi Frame Assets
+name: Import Taxi Frame Assets
 
 on:
   push:
     paths:
-      - 'kirikkale-taksi-frame-sequence-hero/assets/frame-archive/**'
+      - 'kirikkale-taksi-frame-sequence-hero/assets/download-frames.trigger'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  extract-frames:
+  import-frames:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -18,39 +18,61 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install 7-Zip
+      - name: Check import trigger
+        id: gate
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y p7zip-full
+          MARKER='kirikkale-taksi-frame-sequence-hero/assets/download-frames.trigger'
+          if [ -f "$MARKER" ]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Rebuild uploaded frame archive
+      - name: Download production WebP frames
+        if: steps.gate.outputs.ready == 'true'
         shell: bash
         run: |
           set -euo pipefail
           PROJECT='kirikkale-taksi-frame-sequence-hero'
-          PARTS="$PROJECT/assets/frame-archive"
-          cat "$PARTS"/part-* > /tmp/frames.rar.b64
-          base64 --decode /tmp/frames.rar.b64 > /tmp/frames.rar
+          FRAME_DIR="$PROJECT/frames"
+          BASE_URL='https://kirikkaletaksicin.com.tr/taxi-sequence/frames'
+          mkdir -p "$FRAME_DIR"
 
-      - name: Extract 80 WebP frames
-        shell: bash
-        run: |
-          set -euo pipefail
-          PROJECT='kirikkale-taksi-frame-sequence-hero'
-          7z x /tmp/frames.rar -o"$PROJECT" -y
-          count=$(find "$PROJECT/frames" -maxdepth 1 -type f -name 'taxi-*.webp' | wc -l)
-          echo "Extracted frame count: $count"
+          for n in $(seq 1 80); do
+            i=$(printf '%03d' "$n")
+            file="taxi-${i}.webp"
+            echo "Downloading $file"
+            curl --fail --location --retry 3 --retry-delay 2 \
+              "$BASE_URL/$file" \
+              --output "$FRAME_DIR/$file"
+          done
+
+          count=$(find "$FRAME_DIR" -maxdepth 1 -type f -name 'taxi-*.webp' | wc -l)
+          echo "Downloaded frame count: $count"
           test "$count" -eq 80
 
-      - name: Commit frames and remove temporary staging
+          for n in $(seq 1 80); do
+            i=$(printf '%03d' "$n")
+            test -s "$FRAME_DIR/taxi-${i}.webp"
+          done
+
+      - name: Commit imported frames and cleanup
+        if: steps.gate.outputs.ready == 'true'
         shell: bash
         run: |
           set -euo pipefail
           PROJECT='kirikkale-taksi-frame-sequence-hero'
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
           git add "$PROJECT/frames"
-          git rm -r "$PROJECT/assets/frame-archive"
-          git rm .github/workflows/extract-taxi-frames.yml
+
+          if [ -d "$PROJECT/assets/frame-archive" ]; then
+            git rm -r "$PROJECT/assets/frame-archive"
+          fi
+
+          git rm "$PROJECT/assets/download-frames.trigger"
+
           git commit -m 'assets: add 80 taxi frame sequence images'
           git push
