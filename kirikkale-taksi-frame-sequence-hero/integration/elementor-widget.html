@@ -1,0 +1,79 @@
+<div class="taxi-sequence-bg">
+  <iframe
+    id="taxiSequenceFrame"
+    src="/taxi-sequence/taxi-sequence-hero.html"
+    title="Interactive Taxi">
+  </iframe>
+</div>
+
+<style>
+.taxi-hero {
+  position: relative !important;
+  min-height: 100vh !important;
+  overflow: hidden !important;
+  background: #0b0b0c;
+}
+
+.taxi-hero .taxi-sequence-widget {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  z-index: 1 !important;
+}
+
+.taxi-hero .taxi-sequence-widget > .elementor-widget-container {
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.taxi-sequence-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.taxi-sequence-bg iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.taxi-content {
+  position: relative !important;
+  z-index: 5 !important;
+  width: 45%;
+}
+
+@media (max-width: 767px) {
+  .taxi-content {
+    width: 100%;
+  }
+}
+</style>
+
+<script>
+(function () {
+  const frame = document.getElementById('taxiSequenceFrame');
+  if (!frame) return;
+
+  document.addEventListener('pointermove', function (event) {
+    if (!frame.contentWindow) return;
+
+    const x = (event.clientX / window.innerWidth) * 2 - 1;
+
+    frame.contentWindow.postMessage({
+      type: 'taxi-sequence-pointer',
+      x: x
+    }, '*');
+  }, { passive: true });
+})();
+</script>
