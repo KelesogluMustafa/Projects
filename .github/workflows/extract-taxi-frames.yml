@@ -1,0 +1,58 @@
+name: Extract Taxi Frame Assets
+
+on:
+  push:
+    paths:
+      - 'kirikkale-taksi-frame-sequence-hero/assets/frame-archive/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  extract-frames:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install 7-Zip
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full
+
+      - name: Rebuild uploaded frame archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT='kirikkale-taksi-frame-sequence-hero'
+          PARTS="$PROJECT/assets/frame-archive"
+          cat "$PARTS"/part-* > /tmp/frames.rar.b64
+          base64 --decode /tmp/frames.rar.b64 > /tmp/frames.rar
+
+      - name: Extract 80 WebP frames
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT='kirikkale-taksi-frame-sequence-hero'
+          7z x /tmp/frames.rar -o"$PROJECT" -y
+          count=$(find "$PROJECT/frames" -maxdepth 1 -type f -name 'taxi-*.webp' | wc -l)
+          echo "Extracted frame count: $count"
+          test "$count" -eq 80
+
+      - name: Commit extracted frames
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT='kirikkale-taksi-frame-sequence-hero'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$PROJECT/frames"
+          if git diff --cached --quiet; then
+            echo 'Frames already committed.'
+            exit 0
+          fi
+          git commit -m 'assets: add 80 taxi frame sequence images'
+          git push
