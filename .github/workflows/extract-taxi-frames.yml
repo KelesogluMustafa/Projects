@@ -42,7 +42,7 @@ jobs:
           echo "Extracted frame count: $count"
           test "$count" -eq 80
 
-      - name: Commit extracted frames
+      - name: Commit frames and remove temporary staging
         shell: bash
         run: |
           set -euo pipefail
@@ -50,9 +50,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add "$PROJECT/frames"
-          if git diff --cached --quiet; then
-            echo 'Frames already committed.'
-            exit 0
-          fi
+          git rm -r "$PROJECT/assets/frame-archive"
+          git rm .github/workflows/extract-taxi-frames.yml
           git commit -m 'assets: add 80 taxi frame sequence images'
           git push
